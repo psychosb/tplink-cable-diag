@@ -1,0 +1,5 @@
+{
+  "name": "TP-Link Cable Diagnostics",
+  "render_readme": true,
+  "homeassistant": "2024.1.0"
+}

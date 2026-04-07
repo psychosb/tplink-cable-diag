@@ -1,0 +1,28 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "TP-Link Cable Diagnostics",
+        "description": "Configure your TP-Link Easy Smart Switch for cable diagnostics.",
+        "data": {
+          "switch_ip": "Switch IP Address",
+          "username": "Username",
+          "password": "Password",
+          "scan_interval": "Scan interval (minutes)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the switch. Check IP, username and password."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "Scan interval (minutes)"
+        }
+      }
+    }
+  }
+}
