@@ -60,6 +60,7 @@ class CableDiagSensor(CoordinatorEntity, SensorEntity):
             "port": self._port,
             "state_code": port_data.get("state"),
             "fault": port_data.get("fault", False),
+            "skipped": port_data.get("skipped", False),
             "switch_ip": self._switch_ip,
         }
         if port_data.get("length_m") is not None:
