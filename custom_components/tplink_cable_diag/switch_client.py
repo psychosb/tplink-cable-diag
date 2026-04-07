@@ -62,22 +62,41 @@ class TpLinkSwitchClient:
             text = resp.decode("utf-8", errors="replace")
             idx = text.find("\r\n\r\n")
             return text[idx + 4:] if idx > 0 else text
+        except socket.timeout:
+            _LOGGER.error("Timeout connecting to switch at %s:80", self.host)
+            return ""
+        except ConnectionRefusedError:
+            _LOGGER.error("Connection refused by switch at %s:80", self.host)
+            return ""
+        except OSError as e:
+            _LOGGER.error("Network error connecting to switch at %s:80 - %s", self.host, e)
+            return ""
         except Exception as e:
-            _LOGGER.error("Failed to communicate with switch at %s: %s", self.host, e)
+            _LOGGER.error("Failed to communicate with switch at %s: %s (%s)", self.host, e, type(e).__name__)
             return ""
         finally:
             s.close()
 
     def _login(self) -> bool:
         """Login to the switch."""
+        _LOGGER.debug("Attempting login to switch at %s", self.host)
         resp = self._raw_http(
             "/logon.cgi",
             f"username={self.username}&password={self.password}&logon=Login",
         )
+        if not resp:
+            _LOGGER.error("Switch at %s returned empty response on login", self.host)
+            return False
         err = re.search(r'logonInfo\s*=\s*new\s+Array\(\s*(\d+)', resp)
         if err and err.group(1) == "0":
+            _LOGGER.debug("Login successful to switch at %s", self.host)
             return True
-        _LOGGER.error("Switch login failed (errType=%s)", err.group(1) if err else "unknown")
+        _LOGGER.error(
+            "Switch login failed at %s (errType=%s, response_size=%d)",
+            self.host,
+            err.group(1) if err else "unknown",
+            len(resp),
+        )
         return False
 
     def _run_test(self, ports: list[int]) -> dict | None:
