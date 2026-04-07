@@ -8,7 +8,8 @@
           "switch_ip": "Switch IP Address",
           "username": "Username",
           "password": "Password",
-          "scan_interval": "Scan interval (minutes)"
+          "schedule_day": "Test day (daily, mon, tue, wed, thu, fri, sat, sun)",
+          "schedule_hour": "Test hour (0-23)"
         }
       }
     },
@@ -20,7 +21,8 @@
     "step": {
       "init": {
         "data": {
-          "scan_interval": "Scan interval (minutes)"
+          "schedule_day": "Test day (daily, mon, tue, wed, thu, fri, sat, sun)",
+          "schedule_hour": "Test hour (0-23)"
         }
       }
     }

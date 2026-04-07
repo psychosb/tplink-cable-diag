@@ -9,9 +9,12 @@ from .const import (
     CONF_SWITCH_IP,
     CONF_USERNAME,
     CONF_PASSWORD,
-    CONF_SCAN_INTERVAL,
+    CONF_SCHEDULE_DAY,
+    CONF_SCHEDULE_HOUR,
     DEFAULT_USERNAME,
-    DEFAULT_SCAN_INTERVAL,
+    DEFAULT_SCHEDULE_DAY,
+    DEFAULT_SCHEDULE_HOUR,
+    SCHEDULE_DAYS,
 )
 from .switch_client import TpLinkSwitchClient
 
@@ -51,8 +54,11 @@ class TpLinkCableDiagConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_USERNAME, default=DEFAULT_USERNAME): str,
                     vol.Required(CONF_PASSWORD): str,
                     vol.Optional(
-                        CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL
-                    ): vol.All(vol.Coerce(int), vol.Range(min=30, max=1440)),
+                        CONF_SCHEDULE_DAY, default=DEFAULT_SCHEDULE_DAY
+                    ): vol.In(SCHEDULE_DAYS),
+                    vol.Optional(
+                        CONF_SCHEDULE_HOUR, default=DEFAULT_SCHEDULE_HOUR
+                    ): vol.All(vol.Coerce(int), vol.Range(min=0, max=23)),
                 }
             ),
             errors=errors,
@@ -81,11 +87,17 @@ class TpLinkCableDiagOptionsFlow(config_entries.OptionsFlow):
             data_schema=vol.Schema(
                 {
                     vol.Optional(
-                        CONF_SCAN_INTERVAL,
+                        CONF_SCHEDULE_DAY,
                         default=self.config_entry.data.get(
-                            CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+                            CONF_SCHEDULE_DAY, DEFAULT_SCHEDULE_DAY
                         ),
-                    ): vol.All(vol.Coerce(int), vol.Range(min=30, max=1440)),
+                    ): vol.In(SCHEDULE_DAYS),
+                    vol.Optional(
+                        CONF_SCHEDULE_HOUR,
+                        default=self.config_entry.data.get(
+                            CONF_SCHEDULE_HOUR, DEFAULT_SCHEDULE_HOUR
+                        ),
+                    ): vol.All(vol.Coerce(int), vol.Range(min=0, max=23)),
                 }
             ),
         )
