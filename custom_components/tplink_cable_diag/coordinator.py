@@ -6,7 +6,7 @@ from datetime import timedelta
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DOMAIN, CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+from .const import DOMAIN, DEFAULT_SCAN_INTERVAL
 from .switch_client import TpLinkSwitchClient
 
 _LOGGER = logging.getLogger(__name__)
@@ -31,8 +31,6 @@ class TpLinkCableDiagCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self) -> dict:
         """Fetch cable test data from the switch."""
-        # Test ports one at a time to avoid disrupting active connections
-        # Only test ports that are not actively linked (or test all if first run)
         try:
             results = await self.client.async_run_test()
         except Exception as err:

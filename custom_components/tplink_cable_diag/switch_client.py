@@ -3,7 +3,6 @@
 import asyncio
 import logging
 import re
-import socket
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,12 +28,24 @@ class TpLinkSwitchClient:
         self.password = password
         self.max_ports = 8
 
-    def _raw_http(self, path: str, body: str | None = None) -> str:
-        """Send raw HTTP request to the switch (sync, runs in executor)."""
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(15)
+    async def _async_http(self, path: str, body: str | None = None) -> str:
+        """Send raw HTTP request using asyncio streams."""
         try:
-            s.connect((self.host, 80))
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(self.host, 80),
+                timeout=10,
+            )
+        except asyncio.TimeoutError:
+            _LOGGER.error("Timeout connecting to switch at %s:80", self.host)
+            return ""
+        except ConnectionRefusedError:
+            _LOGGER.error("Connection refused by switch at %s:80", self.host)
+            return ""
+        except OSError as e:
+            _LOGGER.error("Network error connecting to switch at %s:80 - %s", self.host, e)
+            return ""
+
+        try:
             method = "POST" if body else "GET"
             req = (
                 f"{method} {path} HTTP/1.0\r\n"
@@ -49,38 +60,36 @@ class TpLinkSwitchClient:
             req += "Connection: close\r\n\r\n"
             if body:
                 req += body
-            s.sendall(req.encode())
-            resp = b""
-            while True:
-                try:
-                    chunk = s.recv(4096)
-                    if not chunk:
-                        break
-                    resp += chunk
-                except socket.timeout:
-                    break
+
+            writer.write(req.encode())
+            await writer.drain()
+
+            resp = await asyncio.wait_for(reader.read(65536), timeout=15)
             text = resp.decode("utf-8", errors="replace")
+
             idx = text.find("\r\n\r\n")
             return text[idx + 4:] if idx > 0 else text
-        except socket.timeout:
-            _LOGGER.error("Timeout connecting to switch at %s:80", self.host)
-            return ""
-        except ConnectionRefusedError:
-            _LOGGER.error("Connection refused by switch at %s:80", self.host)
-            return ""
-        except OSError as e:
-            _LOGGER.error("Network error connecting to switch at %s:80 - %s", self.host, e)
+
+        except asyncio.TimeoutError:
+            _LOGGER.error("Timeout reading response from switch at %s", self.host)
             return ""
         except Exception as e:
-            _LOGGER.error("Failed to communicate with switch at %s: %s (%s)", self.host, e, type(e).__name__)
+            _LOGGER.error(
+                "Error communicating with switch at %s: %s (%s)",
+                self.host, e, type(e).__name__,
+            )
             return ""
         finally:
-            s.close()
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except Exception:
+                pass
 
-    def _login(self) -> bool:
+    async def _async_login(self) -> bool:
         """Login to the switch."""
         _LOGGER.debug("Attempting login to switch at %s", self.host)
-        resp = self._raw_http(
+        resp = await self._async_http(
             "/logon.cgi",
             f"username={self.username}&password={self.password}&logon=Login",
         )
@@ -99,19 +108,21 @@ class TpLinkSwitchClient:
         )
         return False
 
-    def _run_test(self, ports: list[int]) -> dict | None:
-        """Run cable test on specified ports (blocking)."""
-        import time
+    async def async_run_test(self, ports: list[int] | None = None) -> dict | None:
+        """Run cable test on specified ports."""
+        if ports is None:
+            ports = list(range(1, self.max_ports + 1))
 
-        if not self._login():
+        if not await self._async_login():
             return None
 
-        time.sleep(0.5)
+        await asyncio.sleep(0.5)
 
         params = "&".join(f"chk_{p}={p}" for p in ports) + "&Apply=Apply"
-        result = self._raw_http(f"/cable_diag_get.cgi?{params}")
+        result = await self._async_http(f"/cable_diag_get.cgi?{params}")
 
         if not result:
+            _LOGGER.error("Cable test returned empty response")
             return None
 
         state_match = re.search(r'cablestate\s*=\s*\[([^\]]+)\]', result)
@@ -140,16 +151,6 @@ class TpLinkSwitchClient:
 
         return port_results
 
-    async def async_run_test(
-        self, ports: list[int] | None = None
-    ) -> dict | None:
-        """Run cable test asynchronously."""
-        if ports is None:
-            ports = list(range(1, self.max_ports + 1))
-        return await asyncio.get_event_loop().run_in_executor(
-            None, self._run_test, ports
-        )
-
     async def async_test_connection(self) -> bool:
         """Test if we can connect and login to the switch."""
-        return await asyncio.get_event_loop().run_in_executor(None, self._login)
+        return await self._async_login()
